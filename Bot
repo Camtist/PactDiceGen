@@ -589,7 +589,7 @@ def stay(bot, trigger): #Lets you choose 'stay' whenever you are in a clash
             bot.memory['pact_dice_gen']['clashCounter'] += 1
             bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = True
             bot.say('Understood.', trigger.nick)
-            if bot.memory['pact_dice_gen0']['clashCounter'] >= bot.memory['pact_dice_gen']['clashGoal']:
+            if bot.memory['pact_dice_gen']['clashCounter'] >= bot.memory['pact_dice_gen']['clashGoal']:
                 bot.memory['pact_dice_gen']['clashCounter'] = 0
                 bot.memory['pact_dice_gen']['clashGoal'] = 0
                 clash(bot, '#test')
