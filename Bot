@@ -523,7 +523,7 @@ def bid(bot, trigger): #Lets you bid during the bidding phase
                     bot.memory['pact_dice_gen']['bidPhase'] = False
                     bidResolve0(bot, '#test')
             elif trigger.group(2).lower() not in bot.memory['pact_dice_gen']['categories']:
-                bot.say('That category has already been taken. Please pick another category.', trigger.nick)
+                bot.say('That slot is not available. Please select another.', trigger.nick)
             else:
                 bot.say('You have already submitted a bid. Please wait for the next round.', trigger.nick)
         else:
@@ -550,7 +550,7 @@ def rebid(bot, trigger): #Lets you rebid after a clash is resolved
                         bot.memory['pact_dice_gen']['rebidPhase1'] = False
                         bidResolve0(bot,'#test')
                 else:
-                    bot.say('That category is already taken. Please choose another.', trigger.nick)
+                    bot.say('That slot is not available. Please select another.', trigger.nick)
             else:
                 bot.say('You are not in a clash. Please wait for the next round.', trigger.nick)
         elif bot.memory['pact_dice_gen']['rebidPhase2'] == True:
@@ -572,7 +572,7 @@ def rebid(bot, trigger): #Lets you rebid after a clash is resolved
                             bot.say('Rebidding is complete. There are no survivors.','#test')
                             bidResolve0(bot, '#test')            
                 else:
-                    bot.say('That category is already taken. Please choose another.', trigger.nick)
+                    bot.say('That slot is not available. Please select another.', trigger.nick)
             else:
                 bot.say('You are not in a clash. Please wait for the next round.', trigger.nick)
         else:
