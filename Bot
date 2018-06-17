@@ -1,0 +1,674 @@
+from sopel.module import commands, require_privmsg, require_chanmsg
+import random
+## IMPORTANT: CHANGE VARIABLES BACK
+
+def newGame(bot):
+    bot.memory['pact_dice_gen'] = { 'players':[], # Made categories into things you can grab. Not really sure what else to do with them that works.
+                                    'categories':['Supreme Puissance', 'Greater Puissance', 'Moderate Puissance', 'Lesser Puissance', 'Insignificant Puissance', \
+                                                    'Supreme Longevity', 'Greater Longevity', 'Moderate Longevity', 'Lesser Longevity', 'Insignificant Longevity', \
+                                                    'Supreme Access', 'Greater Access', 'Moderate Access', 'Lesser Access', 'Insignificant Access', \
+                                                    'Supreme Executions', 'Greater Executions', 'Moderate Executions', 'Lesser Executions', 'Insignificant Executions', \
+                                                    'Supreme Research', 'Greater Research', 'Moderate Research', 'Lesser Research', 'Insignificant Research', \
+                                                    'Supreme Schools', 'Greater Schools', 'Moderate Schools', 'Lesser Schools', 'Insignificant Schools', \
+                                                    'Supreme Priority', 'Greater Priority', 'Moderate Priority', 'Lesser Priority', 'Insignificant Priority', \
+                                                    'Supreme Family', 'Greater Family', 'Moderate Family', 'Lesser Family', 'Insignificant Family'],
+                                    'clash':[], #To keep track of player names during clashes. Not sure exactly how to use this, but I'll figure it out. I hope.
+                                    'setupPhase':False,
+                                    'genOngoing':False,
+                                    'bidPhase':False,
+                                    'clashPhase':False,
+                                    'rebidPhase1':False,
+                                    'rebidPhase2':False,
+                                    'roundCounter':0,
+                                    'bidCounter':0,
+                                    'rebidGoal':0,
+                                    'rebidCounter':0,
+                                    'clashGoal':0,
+                                    'clashCounter':0,
+                                    'owner':'Camtist' }
+
+
+def newGen(bot):
+    bot.memory['pact_dice_gen0'] = {str(bot.memory['pact_dice_gen']['players'][0]) + ' categories':[],
+                                        str(bot.memory['pact_dice_gen']['players'][1]) + ' categories':[],
+                                        str(bot.memory['pact_dice_gen']['players'][2]) + ' categories':[],
+                                        str(bot.memory['pact_dice_gen']['players'][3]) + ' categories':[],
+                                        str(bot.memory['pact_dice_gen']['players'][4]) + ' categories':[], #Trying to make inventories for each player. No idea if I did it right, or if I can even use keys in a dictionary that draw from the same dictionary. If I can't, then everything's fucked
+                                        str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid':None,
+                                        str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid':None,
+                                        str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid':None,
+                                        str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid':None,
+                                        str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid':None, #To help with clashes. Hopefully.
+                                        str(bot.memory['pact_dice_gen']['players'][0]) + ' clashStatus':None,
+                                        str(bot.memory['pact_dice_gen']['players'][1]) + ' clashStatus':None,
+                                        str(bot.memory['pact_dice_gen']['players'][2]) + ' clashStatus':None,
+                                        str(bot.memory['pact_dice_gen']['players'][3]) + ' clashStatus':None,
+                                        str(bot.memory['pact_dice_gen']['players'][4]) + ' clashStatus':None,
+                                        str(bot.memory['pact_dice_gen']['players'][0]) + ' karma':[],
+                                        str(bot.memory['pact_dice_gen']['players'][1]) + ' karma':[],
+                                        str(bot.memory['pact_dice_gen']['players'][2]) + ' karma':[],
+                                        str(bot.memory['pact_dice_gen']['players'][3]) + ' karma':[],
+                                        str(bot.memory['pact_dice_gen']['players'][4]) + ' karma':[]} #To keep track of clash decisions
+
+
+
+# Gonna start guessing how to make these functions, so...*shrugs*
+        
+
+def roundEnd(bot, trigger): #To end the round and start over again.
+    if len(bot.memory['pact_dice_gen']['categories']) <= 5:
+        status(bot, '#test')
+        bot.say('Genning is now over. The rest of the categories may be filled in automatically by the GM. Thank you for playing.', '#test')
+        bot.memory['pact_dice_gen']['genOngoing'] = False
+        return
+    else:
+        bot.say('Round ' + str(bot.memory['pact_dice_gen']['roundCounter']) + ' is now over.', '#test')
+        bot.memory['pact_dice_gen']['bidCounter'] = 0
+        status(bot, '#test')
+        roundStart(bot, '#test')
+
+
+def status(bot, trigger):
+    bot.say(str(bot.memory['pact_dice_gen']['players'][0]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' categories']), '#test')
+    bot.say(str(bot.memory['pact_dice_gen']['players'][1]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' categories']), '#test')
+    bot.say(str(bot.memory['pact_dice_gen']['players'][2]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' categories']), '#test')
+    bot.say(str(bot.memory['pact_dice_gen']['players'][3]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' categories']), '#test')
+    bot.say(str(bot.memory['pact_dice_gen']['players'][4]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' categories']), '#test')
+
+
+def clash(bot, trigger): #This is gonna be a biggun'. It resolves clashes, hopefully.
+    if (len(bot.memory['pact_dice_gen']['clash']) > 0):
+        if (len(bot.memory['pact_dice_gen']['clash']) == 2):
+            if (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' clashStatus'] == False) and (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' clashStatus'] == False):
+                bot.say("Both players have conceded. Please rebid for a category one tier lower.", '#test')
+                bot.memory['pact_dice_gen']['rebidPhase1'] = True
+                bot.memory['pact_dice_gen']['rebidGoal'] = 2
+            elif (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' clashStatus'] == True) and (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' clashStatus'] == False):
+                bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ' has chosen to stay. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ' has conceded.', '#test')
+                bot.say(str(bot.memory['pact_dice_gen']['clash'][1]) + ': Please rebid for a category one tier lower.', '#test')
+                bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' clashStatus'] = None
+                coin1 = random.randint(1,2)
+                if coin1 == 1:
+                    bot.say('Heads. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ' gains one positive karma.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' karma'].append('+')
+                elif coin1 == 2:
+                    bot.say('Tails. ' + str(bot.memory['pact_dice_gen']['clash'][0]) + ' gains one negative karma.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' karma'].append('-')
+                bot.memory['pact_dice_gen']['clash'].remove(bot.memory['pact_dice_gen']['clash'][0])
+                bot.memory['pact_dice_gen']['rebidPhase1'] = True
+                bot.memory['pact_dice_gen']['rebidGoal'] = 1
+            elif (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' clashStatus'] == True) and (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' clashStatus'] == False):
+                bot.say(str(bot.memory['pact_dice_gen']['clash'][1]) + ' has chosen to stay. ' + str(bot.memory['pact_dice_gen']['clash'][0]) + ' has conceded.', '#test')
+                bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ': Please rebid for a category one tier lower.', '#test')
+                bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' clashStatus'] = None
+                coin1 = random.randint(1,2)
+                if coin1 == 1:
+                    bot.say('Heads. ' + str(bot.memory['pact_dice_gen']['clash'][0]) + ' gains one positive karma.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' karma'].append('+')
+                elif coin1 == 2:
+                    bot.say('Tails. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ' gains one negative karma.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' karma'].append('-')
+                bot.memory['pact_dice_gen']['clash'].remove(bot.memory['pact_dice_gen']['clash'][1])
+                bot.memory['pact_dice_gen']['rebidPhase1'] = True
+                bot.memory['pact_dice_gen']['rebidGoal'] = 1
+            elif (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' clashStatus'] == True) and (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' clashStatus'] == True):
+                bot.say('Both players have chosen to stay.', '#test')
+                coin1 = random.randint(1,2)
+                coin2 = random.randint(1,2)
+                if coin1 == 1 and coin2 == 1:
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ': Heads. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ': Heads. Please rebid for categories two tiers lower.')
+                    bot.memory['pact_dice_gen']['rebidPhase1'] = True
+                    bot.memory['pact_dice_gen']['rebidGoal'] = 2
+                elif coin1 == 1 and coin2 == 2:
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ': Heads. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ': Tails.', '#test')
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ': Please rebid for a category two tiers lower.', '#test')
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][1]) + ' gains one negative karma and the bid.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' karma'].append('-')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' clashStatus'] = None
+                    bot.memory['pact_dice_gen']['clash'].remove(bot.memory['pact_dice_gen']['clash'][1])
+                    bot.memory['pact_dice_gen']['rebidPhase1'] = True
+                    bot.memory['pact_dice_gen']['rebidGoal'] = 1
+                elif coin1 == 2 and coin2 == 1:
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ': Tails. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ': Heads.', '#test')
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][1]) + ': Please rebid for a category two tiers lower.', '#test')
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ' gains one negative karma and the bid.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' karma'].append('-')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' clashStatus'] = None
+                    bot.memory['pact_dice_gen']['clash'].remove(bot.memory['pact_dice_gen']['clash'][0])
+                    bot.memory['pact_dice_gen']['rebidPhase1'] = True
+                    bot.memory['pact_dice_gen']['rebidGoal'] = 1
+                elif coin1 == 2 and coin2 == 2:
+                    bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ': Tails. ' + str(bot.memory['pact_dice_gen']['clash'][1]) + ': Tails.', '#test')
+                    bot.say('Both players gain one negative karma, and must once again choose whether to stay or concede.', '#test')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][0]) + ' karma'].append('-')
+                    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['clash'][1]) + ' karma'].append('-')
+        elif (len(bot.memory['pact_dice_gen']['clash']) > 2):
+            for player in bot.memory['pact_dice_gen']['clash']:
+                if bot.memory['pact_dice_gen0'][player + ' clashStatus'] == False:
+                    bot.say(str(player) + ' has conceded. Please rebid for a category one tier lower.', '#test')
+                    bot.memory['pact_dice_gen']['rebidPhase2'] = True
+                    bot.memory['pact_dice_gen']['rebidGoal'] += 1
+                elif bot.memory['pact_dice_gen0'][player + ' clashStatus'] == True:
+                    bot.say (str(player) + ' has chosen to stay.', '#test')
+            if 0 == 0:
+                for player in bot.memory['pact_dice_gen']['clash']:
+                    if bot.memory['pact_dice_gen0'][player + ' clashStatus'] != False:
+                        coin1 = random.randint(1,2)
+                        if coin1 == 1:
+                            bot.say(str(player) + ': Heads. Please rebid for a category two tiers lower.', '#test')
+                            bot.memory['pact_dice_gen']['rebidPhase2'] = True
+                            bot.memory['pact_dice_gen']['rebidGoal'] += 1
+                        elif coin1 == 2:
+                            bot.say(str(player) + ': Tails. Gains one negative karma. Please wait for rebidding.', '#test')
+                            bot.memory['pact_dice_gen0'][str(player) + ' karma'].append('-')
+        elif (len(bot.memory['pact_dice_gen']['clash']) == 1):
+            bot.say(str(bot.memory['pact_dice_gen']['clash'][0]) + ' is the last person standing. They gain the bid.', '#test')
+            bidResolve0(bot)
+    else:
+        bot.say('Fuck', '#test')
+
+
+def bidResolve4(bot, trigger): #No one has clashes, so the round ends and everyone gets their stuffs
+    bot.say('No clashes remain.', '#test')
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' categories'].append(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid'])
+    bot.memory['pact_dice_gen']['categories'].remove(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid'])
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid'] = None
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' categories'].append(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'])
+    bot.memory['pact_dice_gen']['categories'].remove(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'])
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] = None
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' categories'].append(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'])
+    bot.memory['pact_dice_gen']['categories'].remove(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'])
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] = None
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' categories'].append(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'])
+    bot.memory['pact_dice_gen']['categories'].remove(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'])
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] = None
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' categories'].append(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'])
+    bot.memory['pact_dice_gen']['categories'].remove(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'])
+    bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] = None
+    roundEnd(bot, '#test')
+
+
+def bidResolve3(bot, trigger): #Deals with all unresolved clashes with player 3 involved:
+    if bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] == (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']): #Two way, for player 4
+        bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][3] + ' and ' + bot.memory['pact_dice_gen']['players'][4] + ' must submit whether to stay or concede.', '#test')
+        bot.memory['pact_dice_gen']['clashGoal'] = 2
+        bot.memory['pact_dice_gen']['clashPhase'] = True
+        if bot.memory['pact_dice_gen']['clash'] == []:
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+    else: #No clashes with player 3 involved, it moves on
+        bidResolve4(bot, '#test')
+
+
+def bidResolve2(bot, trigger): #Deals with all unresolved clashes with player 2 involved
+    if bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] or bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']:
+        if bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Three way, including players 3 and 4
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][2]) + ', ' + str(bot.memory['pact_dice_gen']['players'][3]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][4]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] == (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']): #Two way, for player 3
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][2] + ' and ' + bot.memory['pact_dice_gen']['players'][3] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] == (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']): #Two way, for player 4
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][2] + ' and ' + bot.memory['pact_dice_gen']['players'][3] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+    else: #No clashes with player 2 involved, it moves on
+        bidResolve3(bot, '#test')
+        
+
+
+def bidResolve1(bot, trigger): #Deals with all unresolved clashes with player 1 involved
+    if ((bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']) or \
+       (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']) or \
+       (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid'])):
+        if bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and \
+           bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Four way, excluding player 0
+            bot.say('Four way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! Everyone except ' + str(bot.memory['pact_dice_gen']['players'][0]) + 'must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 4
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']: #Three way, including players 2 and 3
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][1]) + ', ' + str(bot.memory['pact_dice_gen']['players'][2]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][3]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Three way, including players 2 and 4
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][1]) + ', ' + str(bot.memory['pact_dice_gen']['players'][2]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][4]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Three way, including players 3 and 4
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][1]) + ', ' + str(bot.memory['pact_dice_gen']['players'][3]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][4]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']: #Two way, for player 2
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][1] + ' and ' + bot.memory['pact_dice_gen']['players'][2] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']: #Two way, for player 3
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][1] + ' and ' + bot.memory['pact_dice_gen']['players'][3] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Two way, for player 4
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][1] + ' and ' + bot.memory['pact_dice_gen']['players'][4] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            if bot.memory['pact_dice_gen']['clash'] == []:
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+                bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+    else: #No clashes with player 1 involved, it moves on
+        bidResolve2(bot, '#test')
+
+
+def bidResolve0(bot, trigger): #Deals with all clashes with player 0 involved
+    if (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']) or \
+       (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']) or \
+       (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']) or \
+       (bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']):
+        if bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and \
+           bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Five way, all players
+            bot.say('Five way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! All players must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 5
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and \
+             bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']: #Four way, excluding player 4
+            bot.say('Four way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! Everyone except ' + str(bot.memory['pact_dice_gen']['players'][4]) + 'must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 4
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and \
+             bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Four way, excluding player 3
+            bot.say('Four way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! Everyone except ' + str(bot.memory['pact_dice_gen']['players'][3]) + 'must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 4
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and \
+             bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Four way, excluding player 2
+            bot.say('Four way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! Everyone except ' + str(bot.memory['pact_dice_gen']['players'][2]) + 'must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 4
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and \
+             bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Four way, excluding player 1
+            bot.say('Four way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! Everyone except ' + str(bot.memory['pact_dice_gen']['players'][1]) + 'must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 4
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']: #Three way, including players 1 and 2
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][0]) + ', ' + str(bot.memory['pact_dice_gen']['players'][1]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][2]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']: #Three way, including players 1 and 3
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][0]) + ', ' + str(bot.memory['pact_dice_gen']['players'][1]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][3]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Three way, including players 1 and 4
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][0]) + ', ' + str(bot.memory['pact_dice_gen']['players'][1]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][4]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']: #Three way, including players 2 and 3
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][0]) + ', ' + str(bot.memory['pact_dice_gen']['players'][2]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][3]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Three way, including players 2 and 4
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][0]) + ', ' + str(bot.memory['pact_dice_gen']['players'][2]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][4]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid'] and bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Three way, including players 3 and 4
+            bot.say('Three way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + str(bot.memory['pact_dice_gen']['players'][0]) + ', ' + str(bot.memory['pact_dice_gen']['players'][3]) + \
+            ', and ' + str(bot.memory['pact_dice_gen']['players'][4]) + ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 3
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']: #Two way, for player 1
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][0] + ' and ' + bot.memory['pact_dice_gen']['players'][1] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][1])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']: #Two way, for player 2
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][0] + ' and ' + bot.memory['pact_dice_gen']['players'][2] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][2])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']: #Two way, for player 3
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][0] + ' and ' + bot.memory['pact_dice_gen']['players'][3] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][3])
+        elif bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid'] == bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']: #Two way, for player 4
+            bot.say('Two way clash for ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']) + '! ' + bot.memory['pact_dice_gen']['players'][0] + ' and ' + bot.memory['pact_dice_gen']['players'][4] + \
+            ' must submit whether to stay or concede.', '#test')
+            bot.memory['pact_dice_gen']['clashGoal'] = 2
+            bot.memory['pact_dice_gen']['clashPhase'] = True
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][0])
+            bot.memory['pact_dice_gen']['clash'].append(bot.memory['pact_dice_gen']['players'][4])
+    else: #No clashes with player 0 involved, it moves on
+        bidResolve1(bot, '#test')
+
+
+def roundStart(bot, trigger): #To start the round.
+    bot.memory['pact_dice_gen']['roundCounter'] += 1
+    bot.say('Round ' + str(bot.memory['pact_dice_gen']['roundCounter']) + ' begins now. Please submit your bids.', '#test')
+    bot.memory['pact_dice_gen']['bidPhase'] = True
+
+
+# Partial end of guessing. The stuff below here is from Vern, with some slight naming modifications
+
+
+@commands('hi')
+def hi(bot, trigger):
+    bot.say('Hi!')
+
+
+@commands('flip')
+def flip(bot, trigger):
+    coin = random.randint(1,2)
+    if coin == 1:
+        bot.say('Heads.')
+    elif coin == 2:
+        bot.say('Tails.')
+
+@require_chanmsg
+@commands('PDGen')
+def PDGen(bot, trigger):
+    print(bot.memory.keys())
+    if 'pact_dice_gen' not in bot.memory or bot.memory['pact_dice_gen']['genOngoing'] == False:
+        newGame(bot)
+        bot.memory['pact_dice_gen']['genOngoing'] = True
+        bot.memory['pact_dice_gen']['setupPhase'] = True
+        bot.say("The gen is beginning. If you are a player, type .join to join. When all have assembled, type .start to start.")
+        bot.memory['pact_dice_gen']['players'].append(str(trigger.nick))
+        bot.say(trigger.nick + " has joined. Type .leave to exit the gen.")
+    else:
+        bot.say("A gen is already in progress. Please wait until it is finished to start another gen.")
+
+
+@require_chanmsg
+@commands('join')
+def joinGen(bot, trigger):
+    if trigger.nick not in bot.memory['pact_dice_gen']['players']:
+        bot.memory['pact_dice_gen']['players'].append(str(trigger.nick))
+        bot.say(trigger.nick + " has joined.")
+    else:
+        bot.say('You have already joined. Type .leave if you wish to exit the gen.')
+
+
+@require_chanmsg
+@commands('leave')
+def leaveGen(bot, trigger):
+    if trigger.nick in bot.memory['pact_dice_gen']['players']:
+        bot.memory['pact_dice_gen']['players'].remove(str(trigger.nick))
+        bot.say(trigger.nick + " has left.")
+    else:
+        bot.say('You are not a part of this gen. Type .join if you wish to join the gen.')
+
+
+@require_chanmsg
+@commands('start')
+def start(bot, trigger):
+    if bot.memory['pact_dice_gen']['setupPhase'] == True and len(bot.memory['pact_dice_gen']['players']) == 5: #added a bit to the original thing.
+        bot.memory['pact_dice_gen']['setupPhase'] = False #Gonna need to start guessing again ahhhhhh
+        bot.say("Good luck.")
+        newGen(bot)
+        roundStart(bot, '#test')
+    else:
+        if len(bot.memory['pact_dice_gen']['players']) != 5:
+               bot.say("Sorry, 5 players are required for this program to function. Please gather enough and try again.", "#test")
+        else:
+               bot.say("No gen has been created yet. Type .PDGen to begin a gen and .start once the players have joined.", "#test")
+
+
+#Gonna guess how to do custom commands now
+@require_privmsg
+@commands('bid')
+def bid(bot, trigger): #Lets you bid during the bidding phase
+    if trigger.nick in bot.memory['pact_dice_gen']['players']:
+        if bot.memory['pact_dice_gen']['bidPhase'] == True:
+            if (bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] == None) and (trigger.group(2) in bot.memory['pact_dice_gen']['categories']):
+                bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2)
+                bot.memory['pact_dice_gen']['bidCounter'] += 1
+                bot.say('Understood.', trigger.nick)
+                if bot.memory['pact_dice_gen']['bidCounter'] == 5:
+                    bot.memory['pact_dice_gen']['bidPhase'] = False
+                    bidResolve0(bot, '#test')
+            elif trigger.group(2) not in bot.memory['pact_dice_gen']['categories']:
+                bot.say('That category has already been taken. Please pick another category.', trigger.nick)
+            else:
+                bot.say('You have already submitted a bid. Please wait for the next round.', trigger.nick)
+        else:
+            bot.say('The bidding phase is currently not active. Please try again once it has commenced.', trigger.nick)
+    else:
+        bot.say('You are not currently a player within this gen.', trigger.nick)
+
+
+@require_privmsg
+@commands('rebid')
+def rebid(bot, trigger): #Lets you rebid after a clash is resolved
+    if trigger.nick in bot.memory['pact_dice_gen']['players']:
+        if bot.memory['pact_dice_gen']['rebidPhase1'] == True:
+            if (trigger.nick in bot.memory['pact_dice_gen']['clash']):
+                if trigger.group(2) in bot.memory['pact_dice_gen']['categories']:
+                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2)
+                    bot.memory['pact_dice_gen']['clash'].remove(trigger.nick)
+                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = None
+                    bot.memory['pact_dice_gen']['rebidCounter'] += 1
+                    bot.say('Understood.', trigger.nick)
+                    if bot.memory['pact_dice_gen']['rebidCounter'] == bot.memory['pact_dice_gen']['rebidGoal']:
+                        bot.memory['pact_dice_gen']['rebidCounter'] = 0
+                        bot.memory['pact_dice_gen']['rebidGoal'] = 0
+                        bot.memory['pact_dice_gen']['rebidPhase1'] = False
+                        bidResolve0(bot,'#test')
+                else:
+                    bot.say('That category is already taken. Please choose another.', trigger.nick)
+            else:
+                bot.say('You are not in a clash. Please wait for the next round.', trigger.nick)
+        elif bot.memory['pact_dice_gen']['rebidPhase2'] == True:
+            if (trigger.nick in bot.memory['pact_dice_gen']['clash']):
+                if trigger.group(2) in bot.memory['pact_dice_gen']['categories']:
+                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2)
+                    bot.memory['pact_dice_gen']['clash'].remove(trigger.nick)
+                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = None
+                    bot.memory['pact_dice_gen']['rebidCounter'] += 1
+                    if bot.memory['pact_dice_gen']['rebidCounter'] == bot.memory['pact_dice_gen']['rebidGoal']:
+                        bot.memory['pact_dice_gen']['rebidCounter'] = 0
+                        bot.memory['pact_dice_gen']['rebidGoal'] = 0
+                        if len(bot.memory['pact_dice_gen']['clash']) >= 2:
+                            bot.say('Rebidding is complete. Those who remain, please choose once more whether to stay or concede.', '#test')
+                            clash(bot, '#test')
+                        elif len(bot.memory['pact_dice_gen']['clash']) == 1:
+                            clash(bot,'#test')
+                        elif len(bot.memory['pact_dice_gen']['clash']) == 0:
+                            bot.say('Rebidding is complete. There are no survivors.','#test')
+                            bidResolve0(bot, '#test')            
+                else:
+                    bot.say('That category is already taken. Please choose another.', trigger.nick)
+            else:
+                bot.say('You are not in a clash. Please wait for the next round.', trigger.nick)
+        else:
+            bot.say('No rebids are being accepted at this time.', trigger.nick)
+    else:
+        bot.say('You are not currently a player within this gen.', trigger.nick)
+
+
+@require_privmsg
+@commands('stay')
+def stay(bot, trigger): #Lets you choose 'stay' whenever you are in a clash
+    if bot.memory['pact_dice_gen']['clashPhase'] == True:
+        if trigger.nick in bot.memory['pact_dice_gen']['clash']:
+            bot.memory['pact_dice_gen']['clashCounter'] += 1
+            bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = True
+            bot.say('Understood.', trigger.nick)
+            if bot.memory['pact_dice_gen0']['clashCounter'] >= bot.memory['pact_dice_gen']['clashGoal']:
+                bot.memory['pact_dice_gen']['clashCounter'] = 0
+                bot.memory['pact_dice_gen']['clashGoal'] = 0
+                clash(bot, '#test')
+        else:
+            bot.say('You are not currently in a clash.', trigger.nick)
+    else:
+        bot.say('There are currently no clashes.', trigger.nick)
+
+
+@require_privmsg
+@commands('concede')
+def concede(bot, trigger): #Lets you choose 'concede' whenever you are in a clash
+    if bot.memory['pact_dice_gen']['clashPhase'] == True or bot.memory['pact_dice_gen']['clashPhase'] == True:
+        if trigger.nick in bot.memory['pact_dice_gen']['clash']:
+            bot.memory['pact_dice_gen']['clashCounter'] += 1
+            bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = False
+            bot.say('Understood.', trigger.nick)
+            if bot.memory['pact_dice_gen']['clashCounter'] >= bot.memory['pact_dice_gen']['clashGoal']:
+                bot.memory['pact_dice_gen']['clashCounter'] = 0
+                bot.memory['pact_dice_gen']['clashGoal'] = 0
+                clash(bot, '#test')
+        else:
+            bot.say('You are not currently in a clash.', trigger.nick)
+    else:
+        bot.say('There are currently no clashes.', trigger.nick)
+
+
+@require_chanmsg
+@commands('statuscheck')
+def statuscheck(bot, trigger):
+    if bot.memory['pact_dice_gen']['genOngoing'] == True and bot.memory['pact_dice_gen']['setupPhase'] == False:
+        bot.say(str(bot.memory['pact_dice_gen']['players'][0]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' categories']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][1]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' categories']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][2]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' categories']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][3]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' categories']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][4]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' categories']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][0]) + ' karma: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' karma']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][1]) + ' karma: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' karma']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][2]) + ' karma: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' karma']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][3]) + ' karma: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' karma']), '#test')
+        bot.say(str(bot.memory['pact_dice_gen']['players'][4]) + ' karma: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' karma']), '#test')
+    else:
+        bot.say('There is no status to check.', '#test')
+
+
+@require_privmsg
+@commands('privstatuscheck')
+def privstatuscheck(bot, trigger):
+    if bot.memory['pact_dice_gen']['genOngoing'] == True and bot.memory['pact_dice_gen']['setupPhase'] == False:
+        bot.say(str(bot.memory['pact_dice_gen']['players'][0]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' categories']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][1]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' categories']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][2]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' categories']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][3]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' categories']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][4]) + ' categories: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' categories']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][0]) + ' clash status: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' clashStatus']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][1]) + ' clash status: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' clashStatus']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][2]) + ' clash status: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' clashStatus']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][3]) + ' clash status: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' clashStatus']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['players'][4]) + ' clash status: ' + str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' clashStatus']), trigger.nick)
+        bot.say(str(bot.memory['pact_dice_gen']['clashGoal']))
+        bot.say(str(bot.memory['pact_dice_gen']['clashCounter']))
+        bot.say(str(bot.memory['pact_dice_gen']['clash']))
+    else:
+        bot.say('There is no status to check.', '#test')
+
+
+@require_chanmsg
+@commands('bidcheck')
+def bidcheck(bot, trigger):
+    bot.say(str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][0]) + ' current bid']))
+    bot.say(str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][1]) + ' current bid']))
+    bot.say(str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][2]) + ' current bid']))
+    bot.say(str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][3]) + ' current bid']))
+    bot.say(str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']))
+    bot.say(str(bot.memory['pact_dice_gen']['bidCounter']))
+                                                                 
+
+
+#Todo: Debug thoroughly
+#Todo: Figure out how to do non-five player gens
+#Todo: Figure out how to undo a bid
+#Todo: Test Karma                                                               
+#Todo: Learn how to code
