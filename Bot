@@ -444,6 +444,13 @@ def hi(bot, trigger):
     bot.say('Hi!')
 
 
+@commands('help')
+def help(bot, trigger):
+    bot.say('Use the command .PDGen to start up a Pact Dice Draft.')
+    bot.say('Within the draft, the PM command .bid [tier] [category] (without brackets) is used to bid each round. Tiers are Supreme, Greater, Moderate, Lesser, and Insignificant')
+    bot.say('Use the PM commands .stay or .concede in clashes, and please use .rebid instead of .bid when making a new choice after losing or conceding a slot.')
+
+
 @commands('flip')
 def flip(bot, trigger):
     coin = random.randint(1,2)
