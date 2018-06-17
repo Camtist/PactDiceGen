@@ -1,17 +1,16 @@
 from sopel.module import commands, require_privmsg, require_chanmsg
 import random
-## IMPORTANT: CHANGE VARIABLES BACK
 
 def newGame(bot):
     bot.memory['pact_dice_gen'] = { 'players':[], # Made categories into things you can grab. Not really sure what else to do with them that works.
-                                    'categories':['Supreme Puissance', 'Greater Puissance', 'Moderate Puissance', 'Lesser Puissance', 'Insignificant Puissance', \
-                                                    'Supreme Longevity', 'Greater Longevity', 'Moderate Longevity', 'Lesser Longevity', 'Insignificant Longevity', \
-                                                    'Supreme Access', 'Greater Access', 'Moderate Access', 'Lesser Access', 'Insignificant Access', \
-                                                    'Supreme Executions', 'Greater Executions', 'Moderate Executions', 'Lesser Executions', 'Insignificant Executions', \
-                                                    'Supreme Research', 'Greater Research', 'Moderate Research', 'Lesser Research', 'Insignificant Research', \
-                                                    'Supreme Schools', 'Greater Schools', 'Moderate Schools', 'Lesser Schools', 'Insignificant Schools', \
-                                                    'Supreme Priority', 'Greater Priority', 'Moderate Priority', 'Lesser Priority', 'Insignificant Priority', \
-                                                    'Supreme Family', 'Greater Family', 'Moderate Family', 'Lesser Family', 'Insignificant Family'],
+                                    'categories':['supreme puissance', 'greater puissance', 'moderate puissance', 'lesser puissance', 'insignificant puissance', \
+                                                    'supreme longevity', 'greater longevity', 'moderate longevity', 'lesser longevity', 'insignificant longevity', \
+                                                    'supreme access', 'greater access', 'moderate access', 'lesser access', 'insignificant access', \
+                                                    'supreme executions', 'greater executions', 'moderate executions', 'lesser executions', 'insignificant executions', \
+                                                    'supreme research', 'greater research', 'moderate research', 'lesser research', 'insignificant research', \
+                                                    'supreme schools', 'greater schools', 'moderate schools', 'lesser schools', 'insignificant schools', \
+                                                    'supreme priority', 'greater priority', 'moderate priority', 'lesser priority', 'insignificant priority', \
+                                                    'supreme family', 'greater family', 'moderate family', 'lesser family', 'insignificant family'],
                                     'clash':[], #To keep track of player names during clashes. Not sure exactly how to use this, but I'll figure it out. I hope.
                                     'setupPhase':False,
                                     'genOngoing':False,
@@ -509,14 +508,14 @@ def start(bot, trigger):
 def bid(bot, trigger): #Lets you bid during the bidding phase
     if trigger.nick in bot.memory['pact_dice_gen']['players']:
         if bot.memory['pact_dice_gen']['bidPhase'] == True:
-            if (bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] == None) and (trigger.group(2) in bot.memory['pact_dice_gen']['categories']):
-                bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2)
+            if (bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] == None) and (trigger.group(2).lower() in bot.memory['pact_dice_gen']['categories']):
+                bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2).lower()
                 bot.memory['pact_dice_gen']['bidCounter'] += 1
                 bot.say('Understood.', trigger.nick)
                 if bot.memory['pact_dice_gen']['bidCounter'] == 5:
                     bot.memory['pact_dice_gen']['bidPhase'] = False
                     bidResolve0(bot, '#test')
-            elif trigger.group(2) not in bot.memory['pact_dice_gen']['categories']:
+            elif trigger.group(2).lower() not in bot.memory['pact_dice_gen']['categories']:
                 bot.say('That category has already been taken. Please pick another category.', trigger.nick)
             else:
                 bot.say('You have already submitted a bid. Please wait for the next round.', trigger.nick)
@@ -532,8 +531,8 @@ def rebid(bot, trigger): #Lets you rebid after a clash is resolved
     if trigger.nick in bot.memory['pact_dice_gen']['players']:
         if bot.memory['pact_dice_gen']['rebidPhase1'] == True:
             if (trigger.nick in bot.memory['pact_dice_gen']['clash']):
-                if trigger.group(2) in bot.memory['pact_dice_gen']['categories']:
-                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2)
+                if trigger.group(2).lower() in bot.memory['pact_dice_gen']['categories']:
+                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2).lower()
                     bot.memory['pact_dice_gen']['clash'].remove(trigger.nick)
                     bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = None
                     bot.memory['pact_dice_gen']['rebidCounter'] += 1
@@ -549,8 +548,8 @@ def rebid(bot, trigger): #Lets you rebid after a clash is resolved
                 bot.say('You are not in a clash. Please wait for the next round.', trigger.nick)
         elif bot.memory['pact_dice_gen']['rebidPhase2'] == True:
             if (trigger.nick in bot.memory['pact_dice_gen']['clash']):
-                if trigger.group(2) in bot.memory['pact_dice_gen']['categories']:
-                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2)
+                if trigger.group(2).lower() in bot.memory['pact_dice_gen']['categories']:
+                    bot.memory['pact_dice_gen0'][str(trigger.nick) + ' current bid'] = trigger.group(2).lower()
                     bot.memory['pact_dice_gen']['clash'].remove(trigger.nick)
                     bot.memory['pact_dice_gen0'][str(trigger.nick) + ' clashStatus'] = None
                     bot.memory['pact_dice_gen']['rebidCounter'] += 1
@@ -665,7 +664,6 @@ def bidcheck(bot, trigger):
     bot.say(str(bot.memory['pact_dice_gen0'][str(bot.memory['pact_dice_gen']['players'][4]) + ' current bid']))
     bot.say(str(bot.memory['pact_dice_gen']['bidCounter']))
                                                                  
-
 
 #Todo: Debug thoroughly
 #Todo: Figure out how to do non-five player gens
